@@ -13,7 +13,7 @@ An interactive Newton fractal visualization built with WebGPU, TypeScript, and V
 
 ## 🚀 Live Demo
 
-Visit the live demo: [https://itayfi.github.io/newton-gpt-oss/](https://itayfi.github.io/newton-gpt-oss/)
+Visit the live demo: [https://itayfi.github.io/newton-fractal-interactive/](https://itayfi.github.io/newton-fractal-interactive/)
 
 ## 🎮 How to Use
 
@@ -33,8 +33,8 @@ Visit the live demo: [https://itayfi.github.io/newton-gpt-oss/](https://itayfi.g
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/newton-gpt-oss.git
-   cd newton-gpt-oss
+   git clone https://github.com/itayfi/newton-fractal-interactive.git
+   cd newton-fractal-interactive
    ```
 
 2. Install dependencies:
@@ -81,7 +81,7 @@ This project is configured for automatic deployment to GitHub Pages using GitHub
 The GitHub Actions workflow will:
 - Build the project using Vite
 - Deploy to GitHub Pages
-- Make it available at `https://yourusername.github.io/newton-gpt-oss/`
+- Make it available at `https://itayfi.github.io/newton-fractal-interactive/`
 
 ## 🏗️ Technical Details
 

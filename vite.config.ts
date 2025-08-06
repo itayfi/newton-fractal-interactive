@@ -3,18 +3,18 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   // Set the base path for GitHub Pages deployment
   // This will be overridden by the repository name when deployed
-  base: process.env.NODE_ENV === 'production' ? '/newton-gpt-oss/' : '/',
+  base: process.env.NODE_ENV === 'production' ? '/newton-fractal-interactive/' : '/',
   
   build: {
     // Ensure assets are properly referenced
     assetsDir: 'assets',
-    
+
     // Generate source maps for debugging
     sourcemap: true,
-    
+
     // Optimize for modern browsers that support WebGPU
     target: 'es2022',
-    
+
     rollupOptions: {
       output: {
         // Ensure consistent file naming
@@ -24,10 +24,10 @@ export default defineConfig({
       }
     }
   },
-  
+
   // Ensure proper MIME types for WGSL files
   assetsInclude: ['**/*.wgsl'],
-  
+
   // Development server configuration
   server: {
     // Enable HTTPS for WebGPU development (some features require secure context)
