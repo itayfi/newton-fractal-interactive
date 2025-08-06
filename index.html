@@ -2,14 +2,138 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Newton Fractal – WebGPU</title>
+<title>Newton Fractal – WebGPU Interactive</title>
 <style>
-  html, body { margin:0; height:100%; }
-  canvas { width:100%; height:100%; display:block; background:#000; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+  }
+
+  #app-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+  }
+
+  #canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #000;
+    touch-action: none;
+  }
+
+  #interactive-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .root-marker {
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+
+  .root-marker:hover {
+    filter: brightness(1.2);
+  }
+
+  .root-marker:active {
+    filter: brightness(0.8);
+  }
+
+  #instructions {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    max-width: 300px;
+    z-index: 200;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  #instructions h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #fff;
+  }
+
+  #instructions ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+
+  #instructions li {
+    margin-bottom: 5px;
+  }
+
+  #toggle-instructions {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    z-index: 200;
+    backdrop-filter: blur(10px);
+  }
+
+  #toggle-instructions:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    #instructions {
+      font-size: 12px;
+      padding: 10px;
+      max-width: 250px;
+    }
+
+    .root-marker {
+      width: 20px !important;
+      height: 20px !important;
+    }
+  }
 </style>
 </head>
 <body>
-<canvas id="canvas"></canvas>
+<div id="app-container">
+  <canvas id="canvas"></canvas>
+  <div id="interactive-layer"></div>
+
+  <div id="instructions">
+    <h3>Interactive Newton Fractal</h3>
+    <ul>
+      <li><strong>Drag</strong> colored circles to move roots</li>
+      <li><strong>Double-click</strong> empty space to add roots</li>
+      <li><strong>Double-click</strong> circles to remove roots</li>
+      <li>Colors update automatically using OKHSL</li>
+    </ul>
+  </div>
+
+  <button id="toggle-instructions">Hide Instructions</button>
+</div>
+
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
