@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Newton Fractal – WebGPU</title>
+<style>
+  html, body { margin:0; height:100%; }
+  canvas { width:100%; height:100%; display:block; background:#000; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<script type="module">
+/* ====================== 1️⃣  Utility helpers ====================== */
+async function requestWebGPU() {
+  if (!navigator.gpu) {
+    throw new Error('WebGPU not supported on this browser.');
+  }
+  const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) throw new Error('Failed to get GPU adapter.');
+  return adapter.requestDevice();
+}
+
+/* ====================== 2️⃣  Shader source (WGSL) ====================== */
+const vertexWGSL = `
+  @vertex
+  fn main(@builtin(vertex_index) v: u32) -> @builtin(position) vec4<f32> {
+    // Full‑screen triangle (covers the whole clip space)
+    var pos = array<vec2<f32>, 3>(
+      vec2(-1.0, -1.0),   // bottom‑left
+      vec2( 3.0, -1.0),   // bottom‑right (outside clip space)
+      vec2(-1.0,  3.0)    // top‑left (outside clip space)
+    );
+    return vec4<f32>(pos[v], 0.0, 1.0);
+  }
+`;
+
+const fragmentWGSL = `
+  struct Uniforms {
+    resolution : vec2<u32>,   // canvas width/height
+  };
+  @group(0) @binding(0) var<uniform> u : Uniforms;
+
+  // ----- Complex helpers -------------------------------------------------
+  fn c_add(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+    return a + b;
+  }
+  fn c_sub(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+    return a - b;
+  }
+  fn c_mul(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+    // (a+ib)(c+id) = (ac - bd) + i(ad + bc)
+    return vec2<f32>(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x);
+  }
+  fn c_abs(a: vec2<f32>) -> f32 {
+    return sqrt(a.x*a.x + a.y*a.y);
+  }
+  fn c_div(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+    // a / b = (a * conj(b)) / |b|^2
+    let denom = b.x*b.x + b.y*b.y;
+    return vec2<f32>((a.x*b.x + a.y*b.y)/denom,
+                     (a.y*b.x - a.x*b.y)/denom);
+  }
+
+  // ----- Newton iteration for f(z) = z^3 - 1 -----------------------------
+  // roots: 1, -0.5 ± i*sqrt(3)/2
+  fn newton_root(z0: vec2<f32>) -> (i32, vec2<f32>) {
+    var z = z0;
+    const max_iter = 30u;
+    const eps = 1e-4f;
+    for (var i = 0u; i < max_iter; i = i + 1u) {
+      // f(z) = z^3 - 1
+      let z2 = c_mul(z, z);
+      let fz = c_sub(c_mul(z, z2), vec2(1.0, 0.0));
+      // f'(z) = 3*z^2
+      let fprime = c_mul(vec2(3.0, 0.0), z2);
+      // z = z - f(z)/f'(z)
+      z = c_sub(z, c_div(fz, fprime));
+
+      // check if z is close to one of the roots
+      let r1 = vec2(1.0, 0.0);
+      let r2 = vec2(-0.5, 0.8660254);  // -1/2 + i*sqrt(3)/2
+      let r3 = vec2(-0.5, -0.8660254); // -1/2 - i*sqrt(3)/2
+
+      if (c_abs(c_sub(z, r1)) < eps) { return (0, r1); }
+      if (c_abs(c_sub(z, r2)) < eps) { return (1, r2); }
+      if (c_abs(c_sub(z, r3)) < eps) { return (2, r3); }
+    }
+    // If no root was found, return -1
+    return (-1, vec2(0.0, 0.0));
+  }
+
+  // ----- Color palette ----------------------------------------------------
+  fn root_color(idx: i32) -> vec3<f32> {
+    // 0 → red, 1 → green, 2 → blue
+    switch (idx) {
+      case 0: return vec3(1.0, 0.0, 0.0);  // red
+      case 1: return vec3(0.0, 1.0, 0.0);  // green
+      case 2: return vec3(0.0, 0.0, 1.0);  // blue
+      default: return vec3(0.0, 0.0, 0.0); // black (shouldn't happen)
+    }
+  }
+
+  // ----- Main fragment shader --------------------------------------------
+  @fragment
+  fn main(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
+    // Normalise pixel coordinate to range [-2, 2] × [-2, 2] (complex plane)
+    let uv = fragCoord.xy / vec2<f32>(u.resolution);
+    let x = lerp(-2.0, 2.0, uv.x);
+    let y = lerp(-2.0, 2.0, uv.y);
+    let z0 = vec2<f32>(x, y);
+
+    let (rootIdx, _) = newton_root(z0);
+
+    // Add a little dithering based on iteration count (here just use rootIdx)
+    let color = root_color(rootIdx) * 0.8 + vec3(0.2); // slightly faded
+
+    return vec4<f32>(color, 1.0);
+  }
+`;
+
+/* ====================== 3️⃣  WebGPU initialisation ====================== */
+async function init() {
+  const device = await requestWebGPU();
+
+  const canvas = document.getElementById('canvas');
+  const context = canvas.getContext('webgpu');
+  const format = navigator.gpu.getPreferredCanvasFormat();
+
+  // Resize canvas to device pixel ratio
+  const resizeCanvas = () => {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = canvas.clientWidth  * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    context.configure({
+      device,
+      format,
+      alphaMode: 'opaque',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT
+    });
+  };
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // Uniform buffer: resolution (u32, u32)
+  const uniformBufferSize = 16; // 2 * u32 + padding
+  const uniformBuffer = device.createBuffer({
+    size: uniformBufferSize,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+  });
+
+  // Bind group layout & bind group
+  const bindGroupLayout = device.createBindGroupLayout({
+    entries: [{
+      binding: 0,
+      visibility: GPUShaderStage.FRAGMENT,
+      buffer: { type: 'uniform' }
+    }]
+  });
+  const bindGroup = device.createBindGroup({
+    layout: bindGroupLayout,
+    entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+  });
+
+  // Pipeline
+  const pipeline = device.createRenderPipeline({
+    layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
+    vertex: {
+      module: device.createShaderModule({ code: vertexWGSL }),
+      entryPoint: 'main',
+    },
+    fragment: {
+      module: device.createShaderModule({ code: fragmentWGSL }),
+      entryPoint: 'main',
+      targets: [{ format }]
+    },
+    primitive: { topology: 'triangle-list' },
+  });
+
+  // Main render loop
+  const render = () => {
+    // Update uniform buffer with current canvas size
+    device.queue.writeBuffer(uniformBuffer, 0,
+      new Uint32Array([canvas.width, canvas.height]));
+    // Acquire a command encoder and a render pass
+    const commandEncoder = device.createCommandEncoder();
+    const textureView = context.getCurrentTexture().createView();
+    const renderPass = commandEncoder.beginRenderPass({
+      colorAttachments: [{
+        view: textureView,
+        loadOp: 'clear',
+        storeOp: 'store',
+        clearValue: { r: 0, g: 0, b: 0, a: 1 }
+      }]
+    });
+    renderPass.setPipeline(pipeline);
+    renderPass.setBindGroup(0, bindGroup);
+    renderPass.draw(3, 1, 0, 0);   // one triangle
+    renderPass.end();
+
+    device.queue.submit([commandEncoder.finish()]);
+
+    requestAnimationFrame(render);
+  };
+
+  requestAnimationFrame(render);
+}
+
+init().catch(err => console.error(err));
+</script>
+</body>
+</html>
