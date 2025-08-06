@@ -107,26 +107,44 @@ export class RootManager {
   }
 
   private setupEventListeners(): void {
-    // Mouse down - start dragging
-    this.config.container.addEventListener('mousedown', (e) => {
+    // Pointer down - start dragging (works for mouse, touch, and pen)
+    this.config.container.addEventListener('pointerdown', (e) => {
       const target = e.target as HTMLElement;
       if (target.classList.contains('root-marker')) {
+        // Capture the pointer to ensure we receive all subsequent events
+        target.setPointerCapture(e.pointerId);
         this.startDrag(target.id, e.clientX, e.clientY);
         e.preventDefault();
       }
     });
 
-    // Mouse move - handle dragging
-    document.addEventListener('mousemove', (e) => {
+    // Pointer move - handle dragging
+    document.addEventListener('pointermove', (e) => {
       if (this.dragState.isDragging) {
         this.handleDrag(e.clientX, e.clientY);
         e.preventDefault();
       }
     });
 
-    // Mouse up - end dragging
-    document.addEventListener('mouseup', () => {
+    // Pointer up - end dragging
+    document.addEventListener('pointerup', (e) => {
       if (this.dragState.isDragging) {
+        // Release pointer capture
+        const target = document.getElementById(this.dragState.rootId!);
+        if (target) {
+          target.releasePointerCapture(e.pointerId);
+        }
+        this.endDrag();
+      }
+    });
+
+    // Pointer cancel - handle interruptions (e.g., system gestures)
+    document.addEventListener('pointercancel', (e) => {
+      if (this.dragState.isDragging) {
+        const target = document.getElementById(this.dragState.rootId!);
+        if (target) {
+          target.releasePointerCapture(e.pointerId);
+        }
         this.endDrag();
       }
     });

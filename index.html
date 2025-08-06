@@ -42,6 +42,7 @@
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+    touch-action: none; /* Prevent default touch behaviors like scrolling */
   }
 
   .root-marker:hover {
@@ -125,9 +126,10 @@
     <h3>Interactive Newton Fractal</h3>
     <ul>
       <li><strong>Drag</strong> colored circles to move roots</li>
-      <li><strong>Double-click</strong> empty space to add roots</li>
-      <li><strong>Double-click</strong> circles to remove roots</li>
+      <li><strong>Double-click/tap</strong> empty space to add roots</li>
+      <li><strong>Double-click/tap</strong> circles to remove roots</li>
       <li>Colors update automatically using OKHSL</li>
+      <li>Works on desktop, mobile, and tablets!</li>
     </ul>
   </div>
 
