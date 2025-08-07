@@ -33,9 +33,18 @@ export class RootManager {
   constructor(config: RootManagerConfig) {
     this.config = config;
     console.log('RootManager constructor called');
+
+    // Use initial viewport if provided, otherwise calculate from canvas
+    if (config.initialViewport) {
+      this.viewport = { ...config.initialViewport };
+      console.log('Using provided initial viewport:', this.viewport);
+    } else {
+      this.updateViewport();
+      console.log('Calculated viewport from canvas:', this.viewport);
+    }
+
     this.initializeDefaultRoots();
     this.setupEventListeners();
-    this.updateViewport();
     console.log('RootManager initialized with', this.roots.length, 'roots');
 
     // Call the initial callback after everything is set up
@@ -53,7 +62,7 @@ export class RootManager {
   }
 
   private addRootElement(complex: ComplexNumber, color: RGB): RootElement {
-    const id = `root-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `root-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     
     // Create HTML element for the root
     const element = document.createElement('div');

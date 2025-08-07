@@ -148,11 +148,21 @@ export function screenToComplex(
     y: screenY / canvasHeight
   };
 
-  // Simple mapping to [-2, 2] range for now (ignoring aspect ratio for debugging)
-  const coord = {
-    real: -2.0 + uv.x * 4.0,
-    imag: -2.0 + uv.y * 4.0
-  };
+  // Apply proper aspect ratio handling (matching fragment shader logic)
+  let coord: { real: number; imag: number };
+  if (viewport.aspectRatio > 1.0) {
+    // Wide screen: extend horizontally
+    coord = {
+      real: -2.0 * viewport.aspectRatio + uv.x * (4.0 * viewport.aspectRatio),
+      imag: -2.0 + uv.y * 4.0
+    };
+  } else {
+    // Tall screen: extend vertically
+    coord = {
+      real: -2.0 + uv.x * 4.0,
+      imag: -2.0 / viewport.aspectRatio + uv.y * (4.0 / viewport.aspectRatio)
+    };
+  }
 
   // Apply zoom and center offset (inverse of shader transformation)
   const result = new ComplexNumber(
@@ -175,11 +185,21 @@ export function complexToScreen(
     imag: (complex.imag - viewport.center.imag) * viewport.zoom + viewport.center.imag
   };
 
-  // Simple mapping from [-2, 2] to [0, 1] (ignoring aspect ratio for debugging)
-  const uv = {
-    x: (coord.real + 2.0) / 4.0,
-    y: (coord.imag + 2.0) / 4.0
-  };
+  // Apply proper aspect ratio handling (inverse of fragment shader logic)
+  let uv: { x: number; y: number };
+  if (viewport.aspectRatio > 1.0) {
+    // Wide screen: extend horizontally
+    uv = {
+      x: (coord.real + 2.0 * viewport.aspectRatio) / (4.0 * viewport.aspectRatio),
+      y: (coord.imag + 2.0) / 4.0
+    };
+  } else {
+    // Tall screen: extend vertically
+    uv = {
+      x: (coord.real + 2.0) / 4.0,
+      y: (coord.imag + 2.0 / viewport.aspectRatio) / (4.0 / viewport.aspectRatio)
+    };
+  }
 
   // Convert to screen coordinates
   return {
@@ -204,6 +224,7 @@ export interface RootManagerConfig {
   onRootChange: (roots: ComplexNumber[]) => void;
   minRoots: number;
   maxRoots: number;
+  initialViewport?: ViewportConfig;
 }
 
 // ====================== Default Root Values ======================

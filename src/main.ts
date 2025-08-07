@@ -201,6 +201,7 @@ class NewtonFractalApp {
     if (!container) throw new Error('Interactive layer not found');
 
     console.log('Creating root manager with container:', container);
+    console.log('Current viewport:', this.viewport);
 
     // Create a temporary callback that will be safe during initialization
     const onRootChangeCallback = (roots: ComplexNumber[]) => {
@@ -213,8 +214,11 @@ class NewtonFractalApp {
       container,
       onRootChange: onRootChangeCallback,
       minRoots: 2,
-      maxRoots: 16
+      maxRoots: 16,
+      initialViewport: this.viewport
     });
+
+    console.log('Root manager created with synchronized viewport');
 
     // Initialize the root data buffer with the default roots
     console.log('Performing initial root data update...');
