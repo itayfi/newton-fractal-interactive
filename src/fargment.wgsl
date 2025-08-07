@@ -175,9 +175,10 @@ struct Uniforms {
 
     // Iteration-based gradient
     let iter_normalized = 0.5 + 0.5 * smooth_iter / 32.0;
-    // let brightness_mod = 1.0 - iter_normalized;
     var new_hsv = hsv;
-    new_hsv.z = hsv.z * iter_normalized;
+    new_hsv.z = hsv.z * (1.0 - iter_normalized * 0.5);
+    // Sutle saturation modulation based on iteration count
+    new_hsv.y = hsv.y * (1.0 - (1.0 - iter_normalized) * 0.1);
 
     // Ensure visibility
     new_hsv.z = max(new_hsv.z, 0.2);
