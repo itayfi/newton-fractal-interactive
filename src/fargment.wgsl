@@ -16,6 +16,8 @@ struct Uniforms {
   struct NewtonResult {
     root_index: i32,
     root_value: vec2<f32>,
+    iterations: i32,
+    final_distance: f32,
   };
 
   // ----- Complex helpers -------------------------------------------------
@@ -80,25 +82,108 @@ struct Uniforms {
       }
 
       // Newton iteration: z = z - f(z)/f'(z)
-      z = c_sub(z, c_div(fz, fprime));
+      let step = c_div(fz, fprime);
+      z = c_sub(z, step);
 
       // Check if z is close to any of the roots
       for (var root_idx = 0u; root_idx < u.num_roots; root_idx = root_idx + 1u) {
-        if (c_abs(c_sub(z, root_data.roots[root_idx].xy)) < eps) {
-          return NewtonResult(i32(root_idx), root_data.roots[root_idx].xy);
+        let distance = c_abs(c_sub(z, root_data.roots[root_idx].xy));
+        if (distance < eps) {
+          return NewtonResult(i32(root_idx), root_data.roots[root_idx].xy, i32(i), distance);
         }
       }
     }
     // If no root was found, return -1
-    return NewtonResult(-1, vec2(0.0, 0.0));
+    return NewtonResult(-1, vec2(0.0, 0.0), i32(max_iter), 0.0);
   }
 
-  // ----- Color palette ----------------------------------------------------
-  fn root_color(idx: i32) -> vec3<f32> {
-    if (idx < 0 || idx >= i32(u.num_roots)) {
-      return vec3(0.0, 0.0, 0.0); // black for invalid/no convergence
+  // ----- Color utilities --------------------------------------------------
+  fn hsv_to_rgb(hsv: vec3<f32>) -> vec3<f32> {
+    let h = hsv.x;
+    let s = hsv.y;
+    let v = hsv.z;
+
+    let c = v * s;
+    let x = c * (1.0 - abs(((h * 6.0) % 2.0) - 1.0));
+    let m = v - c;
+
+    var rgb = vec3(0.0);
+
+    if (h < 1.0/6.0) {
+      rgb = vec3(c, x, 0.0);
+    } else if (h < 2.0/6.0) {
+      rgb = vec3(x, c, 0.0);
+    } else if (h < 3.0/6.0) {
+      rgb = vec3(0.0, c, x);
+    } else if (h < 4.0/6.0) {
+      rgb = vec3(0.0, x, c);
+    } else if (h < 5.0/6.0) {
+      rgb = vec3(x, 0.0, c);
+    } else {
+      rgb = vec3(c, 0.0, x);
     }
-    return root_data.colors[idx].rgb;
+
+    return rgb + vec3(m);
+  }
+
+  fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
+    let max_val = max(max(rgb.r, rgb.g), rgb.b);
+    let min_val = min(min(rgb.r, rgb.g), rgb.b);
+    let delta = max_val - min_val;
+
+    var h = 0.0;
+    let s = select(0.0, delta / max_val, max_val > 0.0);
+    let v = max_val;
+
+    if (delta > 0.0) {
+      if (max_val == rgb.r) {
+        h = ((rgb.g - rgb.b) / delta) / 6.0;
+      } else if (max_val == rgb.g) {
+        h = (2.0 + (rgb.b - rgb.r) / delta) / 6.0;
+      } else {
+        h = (4.0 + (rgb.r - rgb.g) / delta) / 6.0;
+      }
+
+      if (h < 0.0) {
+        h = h + 1.0;
+      }
+    }
+
+    return vec3(h, s, v);
+  }
+
+  fn noise(coord: vec2<f32>) -> f32 {
+    return fract(sin(dot(coord, vec2(12.9898, 78.233))) * 43758.5453);
+  }
+
+  // ----- Enhanced color palette with smooth gradients ---------------------
+  fn smooth_root_color(result: NewtonResult, fragCoord: vec2<f32>) -> vec3<f32> {
+    if (result.root_index < 0 || result.root_index >= i32(u.num_roots)) {
+      return vec3(1.0); // white for invalid/no convergence
+    }
+
+    // Get base color for the root
+    let base_color = root_data.colors[result.root_index].rgb;
+
+    // Convert to HSV for easier manipulation
+    let hsv = rgb_to_hsv(base_color);
+
+    // Smooth iteration count
+    const eps = 1e-4f;
+    let smooth_offset = pow(32.0, -result.final_distance / eps);
+    let smooth_iter = f32(result.iterations) - smooth_offset - noise(fragCoord);
+
+    // Iteration-based gradient
+    let iter_normalized = 0.5 + 0.5 * smooth_iter / 32.0;
+    // let brightness_mod = 1.0 - iter_normalized;
+    var new_hsv = hsv;
+    new_hsv.z = hsv.z * iter_normalized;
+
+    // Ensure visibility
+    new_hsv.z = max(new_hsv.z, 0.2);
+    new_hsv.y = max(new_hsv.y, 0.3);
+
+    return hsv_to_rgb(new_hsv);
   }
 
   // ----- Main fragment shader --------------------------------------------
@@ -127,10 +212,9 @@ struct Uniforms {
     coord = (coord - u.center) / u.zoom + u.center;
 
     let result = newton_root(coord);
-    let rootIdx = result.root_index;
 
-    // Use the precomputed colors from the uniform buffer
-    let color = root_color(rootIdx) * 0.9 + vec3(0.1); // slightly faded
+    // Use smooth gradient coloring based on convergence
+    let color = smooth_root_color(result, fragCoord.xy);
 
     return vec4<f32>(color, 1.0);
   }

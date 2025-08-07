@@ -32,6 +32,8 @@ class NewtonFractalApp {
   private rootBuffer!: GPUBuffer;
   private bindGroup!: GPUBindGroup;
   private rootManager!: RootManager;
+  private msaaTexture!: GPUTexture;
+  private readonly sampleCount = 4; // 4x MSAA
 
   private viewport: ViewportConfig = {
     zoom: 1.0,
@@ -102,6 +104,9 @@ class NewtonFractalApp {
         usage: GPUTextureUsage.RENDER_ATTACHMENT
       });
 
+      // Create MSAA texture for antialiasing
+      this.createMSAATexture();
+
       // Update root manager viewport
       if (this.rootManager) {
         this.rootManager.setViewport(this.viewport);
@@ -110,6 +115,21 @@ class NewtonFractalApp {
 
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
+  }
+
+  private createMSAATexture(): void {
+    // Destroy existing MSAA texture if it exists
+    if (this.msaaTexture) {
+      this.msaaTexture.destroy();
+    }
+
+    // Create new MSAA texture
+    this.msaaTexture = this.device.createTexture({
+      size: [this.canvas.width, this.canvas.height],
+      sampleCount: this.sampleCount,
+      format: this.format,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
   }
 
   private async createBuffers(): Promise<void> {
@@ -157,7 +177,7 @@ class NewtonFractalApp {
       ]
     });
 
-    // Create render pipeline
+    // Create render pipeline with MSAA support
     this.pipeline = this.device.createRenderPipeline({
       layout: this.device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
       vertex: {
@@ -170,6 +190,9 @@ class NewtonFractalApp {
         targets: [{ format: this.format }]
       },
       primitive: { topology: 'triangle-list' },
+      multisample: {
+        count: this.sampleCount,
+      },
     });
   }
 
@@ -280,9 +303,12 @@ class NewtonFractalApp {
 
       const commandEncoder = this.device.createCommandEncoder();
       const textureView = this.context.getCurrentTexture().createView();
+      const msaaView = this.msaaTexture.createView();
+
       const renderPass = commandEncoder.beginRenderPass({
         colorAttachments: [{
-          view: textureView,
+          view: msaaView, // Render to MSAA texture
+          resolveTarget: textureView, // Resolve to canvas
           loadOp: 'clear',
           storeOp: 'store',
           clearValue: { r: 0, g: 0, b: 0, a: 1 }
@@ -308,6 +334,9 @@ class NewtonFractalApp {
     }
     if (this.rootManager) {
       this.rootManager.destroy();
+    }
+    if (this.msaaTexture) {
+      this.msaaTexture.destroy();
     }
   }
 }

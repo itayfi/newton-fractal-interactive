@@ -7,6 +7,8 @@ An interactive Newton fractal visualization built with WebGPU, TypeScript, and V
 - **Interactive Root Manipulation**: Drag colored circles to move polynomial roots in real-time
 - **Dynamic Root Management**: Double-click to add new roots or remove existing ones
 - **Automatic Color Generation**: Uses OKHSL color space for visually distinct root colors
+- **Smooth Gradient Coloring**: Beautiful color gradients based on Newton method convergence speed
+- **Antialiasing (MSAA)**: 4x multisampling for crisp, smooth fractal boundaries
 - **Proper Aspect Ratio Handling**: Maintains mathematical accuracy across different screen sizes
 - **Mobile Support**: Works on desktop, tablets, and mobile devices with touch/pointer events
 - **Real-time Rendering**: Powered by WebGPU for smooth, hardware-accelerated graphics
